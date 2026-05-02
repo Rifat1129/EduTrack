@@ -1,7 +1,8 @@
 import axios from "axios";
 
 const publicClient = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || "",
+  // baseURL: "", // এটা মুছে দাও
+  baseURL: "https://edutrack-z7gs.onrender.com", // ✅ এটা বসাও
 });
 
 export default publicClient;

@@ -1,8 +1,8 @@
 import axios from "axios";
 
 const client = axios.create({
-  // VITE_API_URL লাইভ সার্ভারে বসাবো, লোকালপিসিতে localhost কাজ করবে
-  baseURL: import.meta.env.VITE_API_URL ? `${import.meta.env.VITE_API_URL}/api` : "/api",
+  // baseURL: "/api", // এটা মুছে দাও
+  baseURL: "https://edutrack-z7gs.onrender.com/api", // ✅ এটা বসাও
 });
 
 client.interceptors.request.use((config) => {
