@@ -1,10 +1,10 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useParams } from "react-router-dom";
 import client from "../../api/client";
 import QRCode from "qrcode";
 
 export default function TeacherQRCodes() {
-  const { id } = useParams(); // session_id
+  const { id } = useParams();
   const sessionId = useMemo(() => Number(id), [id]);
 
   const [type, setType] = useState("entry");
@@ -13,8 +13,12 @@ export default function TeacherQRCodes() {
 
   const [token, setToken] = useState("");
   const [qrDataUrl, setQrDataUrl] = useState("");
+  const [lastQRCodeId, setLastQRCodeId] = useState(null);
   const [msg, setMsg] = useState("");
   const [err, setErr] = useState("");
+
+  const [autoRefresh, setAutoRefresh] = useState(false);
+  const autoRefreshRef = useRef(null);
 
   const [attendance, setAttendance] = useState([]);
   const [loadingAttendance, setLoadingAttendance] = useState(false);
@@ -29,16 +33,72 @@ export default function TeacherQRCodes() {
         duration: Number(duration),
         points: Number(points),
       });
-
       const t = res.data.qr_string;
       setToken(t);
-
+      setLastQRCodeId(res.data.qr_code.id);
       const url = await QRCode.toDataURL(t, { margin: 1, width: 280 });
       setQrDataUrl(url);
-      setMsg("QR generated");
+      setMsg("QR generated successfully");
     } catch (e) {
       setMsg("");
       setErr(e?.response?.data?.error || "Failed to generate QR");
+    }
+  }
+
+  async function generateAuto() {
+    try {
+      const res = await client.post("/qrcodes/auto", {
+        session_id: sessionId,
+        type,
+        duration: 10,
+        points: Number(points),
+      });
+      const t = res.data.qr_string;
+      setToken(t);
+      setLastQRCodeId(res.data.qr_code.id);
+      const url = await QRCode.toDataURL(t, { margin: 1, width: 280 });
+      setQrDataUrl(url);
+      setMsg("QR auto-refreshed");
+    } catch (e) {
+      setErr(e?.response?.data?.error || "Auto-refresh failed");
+      setAutoRefresh(false);
+    }
+  }
+
+  useEffect(() => {
+    if (autoRefresh) {
+      generateAuto();
+      autoRefreshRef.current = setInterval(() => {
+        generateAuto();
+      }, 10000);
+    } else {
+      if (autoRefreshRef.current) {
+        clearInterval(autoRefreshRef.current);
+        autoRefreshRef.current = null;
+      }
+    }
+    return () => {
+      if (autoRefreshRef.current) clearInterval(autoRefreshRef.current);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoRefresh]);
+
+  async function applyPenalty() {
+    if (!lastQRCodeId) {
+      setErr("Generate a Bonus QR first");
+      return;
+    }
+    try {
+      const res = await client.post("/bonus/penalty", {
+        session_id: sessionId,
+        qr_code_id: lastQRCodeId,
+        penalty_points: -10,
+      });
+      setMsg(
+        `Penalty applied! ${res.data.students_penalized} penalized, ${res.data.students_rewarded} rewarded.`
+      );
+    } catch (e) {
+      setErr(e?.response?.data?.error || "Failed to apply penalty");
     }
   }
 
@@ -48,7 +108,6 @@ export default function TeacherQRCodes() {
       const res = await client.get(`/teacher/sessions/${sessionId}/attendance`);
       setAttendance(res.data || []);
     } catch (_) {
-      // ignore
     } finally {
       setLoadingAttendance(false);
     }
@@ -56,7 +115,6 @@ export default function TeacherQRCodes() {
 
   useEffect(() => {
     loadAttendance();
-    // refresh every 5 seconds (basic realtime)
     const t = setInterval(loadAttendance, 5000);
     return () => clearInterval(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -65,7 +123,7 @@ export default function TeacherQRCodes() {
   async function copyToken() {
     if (!token) return;
     await navigator.clipboard.writeText(token);
-    setMsg("Token copied");
+    setMsg("Token copied!");
     setTimeout(() => setMsg(""), 1200);
   }
 
@@ -75,7 +133,6 @@ export default function TeacherQRCodes() {
       <p className="text-slate-600 mt-2">Session ID: {sessionId}</p>
 
       <div className="mt-5 grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Generator */}
         <div className="rounded-2xl bg-white border shadow-sm p-5">
           <h2 className="font-bold">Generate QR</h2>
 
@@ -91,6 +148,7 @@ export default function TeacherQRCodes() {
                 <option value="task">Task</option>
                 <option value="exit">Exit</option>
                 <option value="prep">Prep</option>
+                <option value="bonus">🎯 Bonus (Attention Check)</option>
               </select>
             </div>
 
@@ -107,9 +165,7 @@ export default function TeacherQRCodes() {
             </div>
 
             <div className="col-span-2">
-              <label className="text-sm font-medium text-slate-700">
-                Points
-              </label>
+              <label className="text-sm font-medium text-slate-700">Points</label>
               <input
                 type="number"
                 className="mt-1 w-full rounded-xl border p-3"
@@ -117,18 +173,50 @@ export default function TeacherQRCodes() {
                 onChange={(e) => setPoints(e.target.value)}
               />
               <p className="text-xs text-slate-500 mt-1">
-                Entry/Exit points will be time-based on student scan. Task/Prep
-                can use this points value.
+                {type === "bonus"
+                  ? "Bonus: Students who scan get these points. Non-scanners get -10 penalty."
+                  : "Entry/Exit uses time-based auto points. Task/Prep uses this value."}
               </p>
             </div>
           </div>
 
           <button
             onClick={generate}
-            className="mt-4 w-full rounded-xl bg-emerald-600 text-white py-3 font-semibold hover:bg-emerald-700"
+            disabled={autoRefresh}
+            className="mt-4 w-full rounded-xl bg-emerald-600 text-white py-3 font-semibold hover:bg-emerald-700 disabled:opacity-50"
           >
-            Generate
+            Generate QR
           </button>
+
+          <div className="mt-3">
+            <button
+              onClick={() => setAutoRefresh(!autoRefresh)}
+              className={`w-full rounded-xl py-3 font-semibold ${
+                autoRefresh
+                  ? "bg-red-600 text-white hover:bg-red-700"
+                  : "bg-blue-600 text-white hover:bg-blue-700"
+              }`}
+            >
+              {autoRefresh
+                ? "⏹ Stop Auto-Refresh"
+                : "🔄 Auto-Refresh QR (every 10s — Screenshot Proof!)"}
+            </button>
+          </div>
+
+          {autoRefresh && (
+            <div className="mt-2 text-xs text-blue-600 font-semibold animate-pulse text-center">
+              🔄 QR refreshing every 10 seconds... Screenshots will NOT work!
+            </div>
+          )}
+
+          {type === "bonus" && lastQRCodeId && (
+            <button
+              onClick={applyPenalty}
+              className="mt-3 w-full rounded-xl bg-red-600 text-white py-3 font-semibold hover:bg-red-700"
+            >
+              ⚠️ Apply Penalty (-10 pts to students who didn't scan)
+            </button>
+          )}
 
           {err && (
             <div className="mt-4 rounded-xl bg-red-50 text-red-700 p-3 text-sm">
@@ -142,7 +230,6 @@ export default function TeacherQRCodes() {
           )}
         </div>
 
-        {/* Preview */}
         <div className="rounded-2xl bg-white border shadow-sm p-5">
           <h2 className="font-bold">Preview</h2>
 
@@ -150,18 +237,35 @@ export default function TeacherQRCodes() {
             <div className="mt-4 text-slate-600">Generate a QR to preview.</div>
           ) : (
             <div className="mt-4 flex flex-col items-center">
-              <img
-                src={qrDataUrl}
-                alt="QR Code"
-                className="rounded-xl border bg-white"
-              />
+              <div className="relative">
+                <img
+                  src={qrDataUrl}
+                  alt="QR Code"
+                  className="rounded-xl border bg-white"
+                />
+                {autoRefresh && (
+                  <div className="absolute top-2 right-2 bg-blue-600 text-white text-xs px-2 py-1 rounded-lg animate-pulse">
+                    LIVE
+                  </div>
+                )}
+              </div>
+
+              {type === "bonus" && (
+                <div className="mt-3 bg-amber-50 border border-amber-200 rounded-xl p-3 text-center w-full">
+                  <div className="text-amber-800 font-bold text-sm">
+                    🎯 BONUS CHALLENGE
+                  </div>
+                  <div className="text-xs text-amber-600 mt-1">
+                    Scan within time → +{points} pts | Miss → -10 pts
+                  </div>
+                </div>
+              )}
 
               <div className="mt-4 w-full">
                 <div className="text-xs text-slate-500">Token</div>
                 <div className="mt-1 p-3 rounded-xl border text-xs break-all bg-slate-50">
                   {token}
                 </div>
-
                 <button
                   onClick={copyToken}
                   className="mt-3 w-full rounded-xl bg-slate-900 text-white py-3 font-semibold hover:bg-slate-800"
@@ -174,7 +278,6 @@ export default function TeacherQRCodes() {
         </div>
       </div>
 
-      {/* Attendance */}
       <div className="mt-6 rounded-2xl bg-white border shadow-sm p-5">
         <div className="flex items-center justify-between">
           <h2 className="font-bold">Real-time Attendance</h2>
@@ -211,7 +314,7 @@ export default function TeacherQRCodes() {
                         {r.entry_time || "-"}
                       </div>
                       <div className="font-bold text-emerald-700">
-                        {r.entry_points ?? ""}
+                        {r.entry_points != null ? `+${r.entry_points}` : ""}
                       </div>
                     </td>
                     <td className="py-2">
@@ -219,7 +322,7 @@ export default function TeacherQRCodes() {
                         {r.exit_time || "-"}
                       </div>
                       <div className="font-bold text-emerald-700">
-                        {r.exit_points ?? ""}
+                        {r.exit_points != null ? `+${r.exit_points}` : ""}
                       </div>
                     </td>
                   </tr>
@@ -233,7 +336,7 @@ export default function TeacherQRCodes() {
           href={`/api/teacher/sessions/${sessionId}/export`}
           className="inline-block mt-4 rounded-xl bg-slate-900 text-white px-4 py-2 text-sm font-semibold hover:bg-slate-800"
         >
-          Download CSV
+          Download Attendance CSV
         </a>
       </div>
     </div>

@@ -1,8 +1,9 @@
 import axios from "axios";
 
 const client = axios.create({
-  // baseURL: "/api", // এটা মুছে দাও
-  baseURL: "https://edutrack-z7gs.onrender.com/api", // ✅ এটা বসাও
+  baseURL: import.meta.env.VITE_API_URL
+    ? `${import.meta.env.VITE_API_URL}/api`
+    : "/api",
 });
 
 client.interceptors.request.use((config) => {
