@@ -112,6 +112,9 @@ func main() {
 		teacher.POST("/tasks", handlers.CreateTask)
 		teacher.GET("/teacher/pending-submissions", handlers.GetPendingSubmissions)
 		teacher.POST("/teacher/grade", handlers.GiveGrade)
+		teacher.GET("/tasks/:id/export", handlers.ExportTaskSubmissions)
+		teacher.POST("/qrcodes/auto", handlers.GenerateAutoRefreshQR)
+		teacher.POST("/bonus/penalty", handlers.ApplyBonusPenalty)
 	}
 
 	// ---------------- Start Server ---------------- //

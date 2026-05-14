@@ -80,6 +80,8 @@ func StudentScan(c *gin.Context) {
 		points = services.CalculateExitPoints(session.EndTime, time.Now())
 	case "task", "prep":
 		points = qr.Points
+	case "bonus":
+		points = qr.Points
 	default:
 		points = 0
 	}
