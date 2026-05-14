@@ -1,7 +1,10 @@
 package handlers
 
 import (
+	"fmt"
 	"net/http"
+	"os"
+	"path/filepath"
 	"time"
 
 	"edutrack/internal/config"
@@ -24,33 +27,61 @@ type CreateTaskInput struct {
 func CreateTask(c *gin.Context) {
 	teacherID := c.GetUint("user_id")
 
-	var input CreateTaskInput
-	if err := c.ShouldBindJSON(&input); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+	courseID := c.PostForm("course_id")
+	title := c.PostForm("title")
+	description := c.PostForm("description")
+	taskMode := c.PostForm("task_mode")
+	openAtStr := c.PostForm("open_at")
+	dueAtStr := c.PostForm("due_at")
+	maxPointsStr := c.PostForm("max_points")
+
+	if courseID == "" || title == "" || taskMode == "" || openAtStr == "" || dueAtStr == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Missing required fields"})
 		return
 	}
 
-	openAt, err := time.Parse("2006-01-02 15:04", input.OpenAt)
+	openAt, err := time.Parse("2006-01-02 15:04", openAtStr)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid open_at format. Use YYYY-MM-DD HH:MM"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid open_at format"})
 		return
 	}
-	dueAt, err := time.Parse("2006-01-02 15:04", input.DueAt)
+	dueAt, err := time.Parse("2006-01-02 15:04", dueAtStr)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid due_at format. Use YYYY-MM-DD HH:MM"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid due_at format"})
 		return
+	}
+
+	maxPoints := 25
+	if maxPointsStr != "" {
+		fmt.Sscanf(maxPointsStr, "%d", &maxPoints)
+	}
+
+	cID := 0
+	fmt.Sscanf(courseID, "%d", &cID)
+
+	// Handle optional file upload
+	var fileURL *string
+	file, err := c.FormFile("file")
+	if err == nil && file != nil {
+		_ = os.MkdirAll("uploads", 0755)
+		filename := fmt.Sprintf("task_teacher_%d_%d%s", teacherID, time.Now().Unix(), filepath.Ext(file.Filename))
+		savePath := filepath.Join("uploads", filename)
+		if err := c.SaveUploadedFile(file, savePath); err == nil {
+			url := "/uploads/" + filename
+			fileURL = &url
+		}
 	}
 
 	task := models.Task{
-		CourseID:    input.CourseID,
-		SessionID:   input.SessionID,
+		CourseID:    uint(cID),
 		TeacherID:   teacherID,
-		Title:       input.Title,
-		Description: input.Description,
-		TaskMode:    input.TaskMode,
+		Title:       title,
+		Description: description,
+		TaskMode:    taskMode,
+		FileURL:     fileURL,
 		OpenAt:      openAt,
 		DueAt:       dueAt,
-		MaxPoints:   input.MaxPoints,
+		MaxPoints:   maxPoints,
 	}
 
 	if err := config.DB.Create(&task).Error; err != nil {

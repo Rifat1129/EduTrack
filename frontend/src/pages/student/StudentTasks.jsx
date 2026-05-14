@@ -51,18 +51,24 @@ export default function StudentTasks() {
             onChange={(e) => setCourseId(e.target.value)}
           >
             {courses.map((c) => (
-              <option key={c.id} value={c.id}>{c.code} - {c.title}</option>
+              <option key={c.id} value={c.id}>
+                {c.code} - {c.title}
+              </option>
             ))}
           </select>
         </div>
 
-        {err && <div className="mt-4 text-red-600 bg-red-50 p-3 rounded-xl">{err}</div>}
+        {err && (
+          <div className="mt-4 text-red-600 bg-red-50 p-3 rounded-xl">{err}</div>
+        )}
 
         <div className="mt-6 space-y-4">
           {loading ? (
             <div className="text-slate-600">Loading tasks...</div>
           ) : tasks.length === 0 ? (
-            <div className="text-slate-600 bg-white p-6 rounded-2xl border text-center">No tasks available for this course.</div>
+            <div className="text-slate-600 bg-white p-6 rounded-2xl border text-center">
+              No tasks available for this course.
+            </div>
           ) : (
             tasks.map((task) => <TaskCard key={task.id} task={task} />)
           )}
@@ -87,7 +93,7 @@ function TaskCard({ task }) {
 
     setSubmitting(true);
     setMsg("");
-    
+
     try {
       const formData = new FormData();
       if (file) formData.append("file", file);
@@ -111,6 +117,18 @@ function TaskCard({ task }) {
         <div>
           <h2 className="font-bold text-lg">{task.title}</h2>
           <p className="text-sm text-slate-600 mt-1">{task.description}</p>
+
+          {/* ✅ Teacher এর Attached File (Assignment instruction/resource) */}
+          {task.file_url && (
+            <a
+              href={`https://edutrack-z7gs.onrender.com${task.file_url}`}
+              target="_blank"
+              rel="noreferrer"
+              className="inline-block mt-2 text-xs font-semibold text-blue-600 hover:underline"
+            >
+              📎 Download Assignment File
+            </a>
+          )}
         </div>
         <div className="text-emerald-700 font-bold bg-emerald-50 px-3 py-1 rounded-lg">
           {task.max_points} Pts
@@ -118,8 +136,14 @@ function TaskCard({ task }) {
       </div>
 
       <div className="mt-3 text-xs text-slate-500 flex gap-4">
-        <span><span className="font-semibold text-slate-700">Mode:</span> {task.task_mode.replace("_", " ")}</span>
-        <span><span className="font-semibold text-slate-700">Due:</span> {new Date(task.due_at).toLocaleString()}</span>
+        <span>
+          <span className="font-semibold text-slate-700">Mode:</span>{" "}
+          {task.task_mode.replace("_", " ")}
+        </span>
+        <span>
+          <span className="font-semibold text-slate-700">Due:</span>{" "}
+          {new Date(task.due_at).toLocaleString()}
+        </span>
       </div>
 
       <div className="mt-4 border-t pt-4">
@@ -131,7 +155,9 @@ function TaskCard({ task }) {
           <form onSubmit={handleSubmit} className="flex flex-col gap-3">
             {task.task_mode === "file_required" && (
               <div>
-                <label className="text-sm font-medium text-slate-700 block mb-1">Upload File</label>
+                <label className="text-sm font-medium text-slate-700 block mb-1">
+                  Upload File
+                </label>
                 <input
                   type="file"
                   onChange={(e) => setFile(e.target.files[0])}
@@ -140,8 +166,10 @@ function TaskCard({ task }) {
                 />
               </div>
             )}
-            
-            {msg && <div className="text-sm text-center text-red-600">{msg}</div>}
+
+            {msg && (
+              <div className="text-sm text-center text-red-600">{msg}</div>
+            )}
 
             <button
               disabled={submitting}

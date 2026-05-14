@@ -13,6 +13,7 @@ export default function TeacherTasks() {
   const [openAt, setOpenAt] = useState("");
   const [dueAt, setDueAt] = useState("");
   const [maxPoints, setMaxPoints] = useState(25);
+  const [file, setFile] = useState(null);
 
   const [creating, setCreating] = useState(false);
   const [err, setErr] = useState("");
@@ -38,7 +39,6 @@ export default function TeacherTasks() {
 
   useEffect(() => {
     loadData();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   async function handleCreate(e) {
@@ -46,21 +46,28 @@ export default function TeacherTasks() {
     setCreating(true);
     setErr("");
     setSuccessMsg("");
+
     try {
-      await client.post("/tasks", {
-        course_id: Number(courseId),
-        title,
-        description,
-        task_mode: taskMode,
-        open_at: openAt.replace("T", " "),
-        due_at: dueAt.replace("T", " "),
-        max_points: Number(maxPoints),
+      const formData = new FormData();
+      formData.append("course_id", courseId);
+      formData.append("title", title);
+      formData.append("description", description);
+      formData.append("task_mode", taskMode);
+      formData.append("open_at", openAt.replace("T", " "));
+      formData.append("due_at", dueAt.replace("T", " "));
+      formData.append("max_points", maxPoints);
+      if (file) formData.append("file", file);
+
+      await client.post("/tasks", formData, {
+        headers: { "Content-Type": "multipart/form-data" },
       });
+
       setSuccessMsg("Task created!");
       setTitle("");
       setDescription("");
       setOpenAt("");
       setDueAt("");
+      setFile(null);
       loadData();
       setTimeout(() => setSuccessMsg(""), 3000);
     } catch (e) {
@@ -73,7 +80,7 @@ export default function TeacherTasks() {
   return (
     <div className="max-w-5xl mx-auto p-6 pb-24">
       <h1 className="text-xl font-bold">Tasks & Assignments</h1>
-      <p className="text-slate-600 mt-2">Create tasks and see submission status</p>
+      <p className="text-slate-600 mt-2">Create tasks and track submissions</p>
 
       <div className="mt-6 grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Create Form */}
@@ -97,6 +104,18 @@ export default function TeacherTasks() {
                 <label className="text-sm font-medium text-slate-700">Description</label>
                 <textarea className="mt-1 w-full rounded-xl border p-3" value={description} onChange={(e) => setDescription(e.target.value)} rows={2} />
               </div>
+
+              {/* File Attachment */}
+              <div>
+                <label className="text-sm font-medium text-slate-700">Attach File (Optional)</label>
+                <p className="text-xs text-slate-500 mb-1">Assignment instructions, PDF, images etc.</p>
+                <input
+                  type="file"
+                  onChange={(e) => setFile(e.target.files[0])}
+                  className="w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-sm file:font-semibold file:bg-emerald-50 file:text-emerald-700 hover:file:bg-emerald-100"
+                />
+              </div>
+
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="text-sm font-medium text-slate-700">Mode</label>
@@ -155,6 +174,18 @@ export default function TeacherTasks() {
                       <div className="text-xs text-slate-500 mt-1">
                         Mode: {t.task_mode.replace("_", " ")} | Max: {t.max_points} pts
                       </div>
+
+                      {/* Teacher Attached File */}
+                      {t.file_url && (
+                        <a
+                          href={`https://edutrack-z7gs.onrender.com${t.file_url}`}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="inline-block mt-2 text-xs font-semibold text-blue-600 hover:underline"
+                        >
+                          📎 View Attached File
+                        </a>
+                      )}
                     </div>
                     <div className="text-right min-w-[110px]">
                       <div className="text-sm font-bold text-emerald-700">{t.submitted}/{t.total}</div>
@@ -162,14 +193,6 @@ export default function TeacherTasks() {
                       <div className="text-sm font-bold text-blue-700 mt-1">{t.graded}/{t.total}</div>
                       <div className="text-xs text-slate-500">graded</div>
                     </div>
-                  </div>
-                  <div className="mt-3">
-                    <a
-                      href={`https://edutrack-z7gs.onrender.com/api/teacher/tasks/${t.id}/export`}
-                      className="text-xs font-semibold bg-slate-100 text-slate-700 px-3 py-1.5 rounded-lg hover:bg-slate-200"
-                    >
-                      📥 Download Submissions CSV
-                    </a>
                   </div>
                 </div>
               ))}
