@@ -63,11 +63,23 @@ func StudentScan(c *gin.Context) {
 	}
 
 	// 4. Duplicate scan চেক করা (একই টাইপের একাধিকবার স্ক্যান করা যাবে না)
-	var existingScan models.ScanEvent
-	if err := config.DB.Where("session_id = ? AND student_id = ? AND type = ?",
-		qr.SessionID, studentID, qr.Type).First(&existingScan).Error; err == nil {
-		c.JSON(http.StatusConflict, gin.H{"error": "You have already scanned this QR type"})
-		return
+	if qr.Type == "bonus" {
+		// Bonus: same QR code ID তে একবারই scan করা যাবে
+		// কিন্তু teacher নতুন bonus QR generate করলে আবার scan করতে পারবে
+		var existingBonus models.ScanEvent
+		if err := config.DB.Where("qr_code_id = ? AND student_id = ?",
+			qr.ID, studentID).First(&existingBonus).Error; err == nil {
+			c.JSON(http.StatusConflict, gin.H{"error": "You have already scanned this bonus QR"})
+			return
+		}
+	} else {
+		// Entry/Task/Exit/Prep: same session এ same type একবারই
+		var existingScan models.ScanEvent
+		if err := config.DB.Where("session_id = ? AND student_id = ? AND type = ?",
+			qr.SessionID, studentID, qr.Type).First(&existingScan).Error; err == nil {
+			c.JSON(http.StatusConflict, gin.H{"error": "You have already scanned this QR type"})
+			return
+		}
 	}
 
 	// 5. Points নির্ধারণ (এখন শুধু QR এর points নিচ্ছি, পরে Entry/Exit এর জন্য time-based লজিক যোগ করব)

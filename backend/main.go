@@ -115,6 +115,7 @@ func main() {
 		teacher.GET("/tasks/:id/export", handlers.ExportTaskSubmissions)
 		teacher.POST("/qrcodes/auto", handlers.GenerateAutoRefreshQR)
 		teacher.POST("/bonus/penalty", handlers.ApplyBonusPenalty)
+		teacher.GET("/teacher/tasks", handlers.ListTeacherTasks)
 	}
 
 	// ---------------- Start Server ---------------- //

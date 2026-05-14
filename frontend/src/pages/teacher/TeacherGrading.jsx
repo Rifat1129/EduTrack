@@ -115,7 +115,7 @@ export default function TeacherGrading() {
                   {p.file_url && (
                     <div className="mt-3">
                       <a 
-                        href={`http://localhost:8080${p.file_url}`} 
+                        href={`https://edutrack-z7gs.onrender.com${p.file_url}`} 
                         target="_blank" 
                         rel="noreferrer"
                         className="text-xs font-semibold text-blue-600 hover:underline"
