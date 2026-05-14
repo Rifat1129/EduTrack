@@ -1,7 +1,7 @@
 import axios from "axios";
 
 const publicClient = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || "",
+  baseURL: "https://edutrack-z7gs.onrender.com",
 });
 
 export default publicClient;
