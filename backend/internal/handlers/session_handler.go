@@ -26,13 +26,14 @@ func CreateSession(c *gin.Context) {
 
 	teacherID := c.GetUint("user_id")
 
-	startTime, err := time.Parse("2006-01-02 15:04", input.StartTime)
+	loc, _ := time.LoadLocation("Asia/Dhaka")
+	startTime, err := time.ParseInLocation("2006-01-02 15:04", input.StartTime, loc)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid start_time format. Use YYYY-MM-DD HH:MM"})
 		return
 	}
 
-	endTime, err := time.Parse("2006-01-02 15:04", input.EndTime)
+	endTime, err := time.ParseInLocation("2006-01-02 15:04", input.EndTime, loc)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid end_time format. Use YYYY-MM-DD HH:MM"})
 		return

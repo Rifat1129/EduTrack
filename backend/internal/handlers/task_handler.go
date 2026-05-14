@@ -40,12 +40,13 @@ func CreateTask(c *gin.Context) {
 		return
 	}
 
-	openAt, err := time.Parse("2006-01-02 15:04", openAtStr)
+	loc, _ := time.LoadLocation("Asia/Dhaka")
+	openAt, err := time.ParseInLocation("2006-01-02 15:04", openAtStr, loc)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid open_at format"})
 		return
 	}
-	dueAt, err := time.Parse("2006-01-02 15:04", dueAtStr)
+	dueAt, err := time.ParseInLocation("2006-01-02 15:04", dueAtStr, loc)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid due_at format"})
 		return
